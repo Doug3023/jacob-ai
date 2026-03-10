@@ -1,4 +1,4 @@
-﻿from google.adk.agents import Agent
+﻿from google.generativeai import GenerativeModel
 import json
 import os
 

@@ -2,8 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .agent import carregar_contexto_lead, registrar_interacao, registrar_lead, root_agent
-
+from agent import carregar_contexto_lead, registrar_interacao, registrar_lead, root_agent
 
 def preparar_payload(
     lead_id: str,

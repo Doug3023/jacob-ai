@@ -8,9 +8,8 @@ def carregar_produto():
     base_dir = os.path.dirname(os.path.abspath(__file__))
     caminho_json = os.path.join(base_dir, "product_config.json")
 
-    with open(caminho_json, "r", encoding="utf-8") as f:
-        return json.load(f)
-
+    with open("produto.json", encoding="utf-8-sig") as f:
+    		return json.load(f)
 
 produto = carregar_produto()
 

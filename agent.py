@@ -2,8 +2,7 @@
 import json
 import os
 
-from .firebase_client import montar_contexto, salvar_conversa, salvar_lead
-
+from firebase_client import montar_contexto, salvar_conversa, salvar_lead
 
 def carregar_produto():
     base_dir = os.path.dirname(os.path.abspath(__file__))

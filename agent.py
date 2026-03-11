@@ -1,19 +1,17 @@
 ﻿import json
 import os
+
 from google import genai
 
 from firebase_client import montar_contexto, salvar_conversa, salvar_lead
 
 
 # ==============================
-# Configurar cliente Gemini
+# Criar cliente Gemini (SDK NOVO)
 # ==============================
-API_KEY = os.environ.get("GOOGLE_API_KEY")
-
-if not API_KEY:
-    raise RuntimeError("GOOGLE_API_KEY não definida nas variáveis de ambiente")
-
-client = genai.Client(api_key=API_KEY)
+client = genai.Client(
+    api_key=os.environ.get("GOOGLE_API_KEY")
+)
 
 
 # ==============================
@@ -23,10 +21,7 @@ def carregar_produto():
     base_dir = os.path.dirname(os.path.abspath(__file__))
     caminho_json = os.path.join(base_dir, "product_config.json")
 
-    if not os.path.exists(caminho_json):
-        raise RuntimeError("Arquivo product_config.json não encontrado")
-
-    with open(caminho_json, "r", encoding="utf-8") as f:
+    with open(caminho_json, "r", encoding="utf-8-sig") as f:
         return json.load(f)
 
 
@@ -46,41 +41,47 @@ Contexto obrigatório:
 - Sua função é ajudar o usuário a tomar a decisão final de compra.
 
 Informações oficiais do produto:
-- Produto: {produto['produto']}
-- Preço: {produto['preco']}
-- Público: {produto['publico']}
-- Dor principal: {produto['dor_principal']}
+Produto: {produto['produto']}
+Preço: {produto['preco']}
+Público: {produto['publico']}
+Dor principal: {produto['dor_principal']}
 
 Benefícios principais:
 {chr(10).join([f"- {b}" for b in produto['beneficios']])}
 
 Respostas para objeções:
-- Funciona? {produto['objeções']['funciona']}
-- Entrega? {produto['objeções']['entrega']}
-- Garantia? {produto['objeções']['garantia']}
+Funciona? {produto['objeções']['funciona']}
+Entrega? {produto['objeções']['entrega']}
+Garantia? {produto['objeções']['garantia']}
 
 Comportamento:
-- Seja direto, claro e confiante.
-- Não use linguagem genérica de atendimento.
-- Não faça perguntas abertas demais.
-- Não fale sobre outros produtos.
-- Não invente benefícios ou promessas irreais.
-- Não use tom exageradamente empolgado.
+- Seja direto, claro e confiante
+- Não use linguagem genérica de atendimento
+- Não faça perguntas abertas demais
+- Não fale sobre outros produtos
+- Não invente benefícios
+- Não exagere no tom
 
-Objetivo principal:
-- Reduzir dúvidas finais.
-- Quebrar objeções comuns.
-- Reforçar valor percebido.
-- Conduzir para decisão de compra.
+Objetivo:
+- Reduzir dúvidas finais
+- Quebrar objeções
+- Reforçar valor
+- Conduzir para decisão de compra
 
 Estilo:
 - Profissional
-- Seguro
 - Simples
+- Seguro
 - Persuasivo sem pressão
 
+Estratégia:
+- Se perguntar preço → explique valor
+- Se tiver dúvida → responda objetivamente
+- Se demonstrar interesse → conduza para compra
+
 Regra absoluta:
-- Use SOMENTE as informações fornecidas.
+Use SOMENTE as informações acima.
+Seu objetivo é fechar a venda com ética.
 """
 
 
@@ -101,32 +102,24 @@ Mensagem do usuário:
 Resposta do Jacob:
 """
 
-    try:
-        response = client.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=prompt,
-        )
+    response = client.models.generate_content(
+        model="gemini-2.0-flash",
+        contents=prompt,
+    )
 
-        if hasattr(response, "text") and response.text:
-            return response.text.strip()
-
-        return "Não consegui gerar uma resposta no momento."
-
-    except Exception as e:
-        print("Erro Gemini:", e)
-        return "Ocorreu um erro ao gerar a resposta."
+    return response.text
 
 
 # ==============================
 # Firebase helpers
 # ==============================
-def registrar_lead(lead_id: str, **dados):
+def registrar_lead(lead_id: str, **dados) -> None:
     salvar_lead(lead_id, dados)
 
 
-def registrar_interacao(lead_id: str, role: str, mensagem: str):
+def registrar_interacao(lead_id: str, role: str, mensagem: str) -> None:
     salvar_conversa(lead_id, role, mensagem)
 
 
-def carregar_contexto_lead(lead_id: str, limit: int = 20):
+def carregar_contexto_lead(lead_id: str, limit: int = 20) -> str:
     return montar_contexto(lead_id, limit=limit)

@@ -7,7 +7,7 @@ from firebase_client import montar_contexto, salvar_conversa, salvar_lead
 
 
 # Configura API do Gemini
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
 
 # ==============================

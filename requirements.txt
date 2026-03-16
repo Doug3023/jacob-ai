@@ -2,3 +2,5 @@ google-genai
 firebase-admin
 flask
 gunicorn
+fastapi
+uvicorn

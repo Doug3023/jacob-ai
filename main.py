@@ -5,10 +5,10 @@ from fastapi.middleware.cors import CORSMiddleware
 import firebase_admin
 from firebase_admin import credentials, firestore
 
-# 1. Primeiro definimos o APP (isso deve vir antes das rotas!)
+# 1. PRIMEIRO: Criamos o app (Obrigatório ser antes das rotas)
 app = FastAPI()
 
-# 2. Configuramos o acesso (CORS)
+# 2. SEGUNDO: Configuramos o CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -16,71 +16,62 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 3. Conectamos ao Firebase
+# 3. TERCEIRO: Conectamos ao Firebase
 firebase_config = os.getenv("FIREBASE_JSON")
 if firebase_config:
-    cred_dict = json.loads(firebase_config)
-    cred = credentials.Certificate(cred_dict)
-    firebase_admin.initialize_app(cred)
-    db = firestore.client()
+    try:
+        cred_dict = json.loads(firebase_config)
+        cred = credentials.Certificate(cred_dict)
+        firebase_admin.initialize_app(cred)
+        db = firestore.client()
+        print("Firebase conectado com sucesso!")
+    except Exception as e:
+        print(f"Erro ao carregar Firebase: {e}")
+        db = None
 else:
     db = None
-    print("Firebase não configurado!")
+    print("Variável FIREBASE_JSON não encontrada!")
 
-# 4. Agora importamos o Agente (depois de iniciar o Firebase para o db estar pronto)
-from agent import root_agent, carregar_contexto_lead, registrar_interacao
+# 4. QUARTO: Importamos o Agente (Só agora que o DB já existe)
+# Certifique-se que o arquivo agent.py está na mesma pasta
+try:
+    from agent import root_agent, carregar_contexto_lead, registrar_interacao
+except Exception as e:
+    print(f"Erro ao importar agent.py: {e}")
 
-# --- ROTA DE CHAT ---
+# --- AGORA SIM, AS ROTAS (Todas abaixo do app = FastAPI) ---
+
 @app.post("/chat")
 async def chat(dados: dict):
     try:
-        lead_id = dados.get("lead_id", "desconhecido")
+        lead_id = dados.get("lead_id", "5511999999999")
         mensagem = dados.get("mensagem")
-
-        # 1. Busca o que eles já conversaram antes (Memória)
         contexto = carregar_contexto_lead(lead_id)
-
-        # 2. Jacob gera a resposta
         resposta = root_agent(mensagem, contexto)
-
-        # 3. Salva a interação
         registrar_interacao(lead_id, "user", mensagem)
         registrar_interacao(lead_id, "model", resposta)
-
         return {"lead_id": lead_id, "resposta": resposta}
     except Exception as e:
         return {"erro": str(e)}
 
-# --- ROTAS DO DASHBOARD ---
 @app.get("/stats")
 def get_stats():
     try:
-        if not db: return {"erro": "Firebase off"}
-        leads_ref = db.collection("leads").stream()
-        total_leads = sum(1 for _ in leads_ref)
-        return {"conversas": total_leads, "cliques": 0, "vendas": 0, "receita": "R$ 0,00"}
+        if not db: return {"erro": "Firebase desconectado"}
+        leads_ref = db.collection("leads").get()
+        return {"conversas": len(leads_ref), "cliques": 0, "vendas": 0, "receita": "R$ 0,00"}
     except Exception as e:
         return {"erro": str(e)}
 
 @app.get("/listar-conversas")
 def listar_conversas():
     try:
-        if not db: return {"erro": "Firebase off"}
+        if not db: return []
         leads_ref = db.collection("leads").stream()
-        lista = []
-        for doc in leads_ref:
-            dados = doc.to_dict()
-            lista.append({
-                "id": doc.id,
-                "nome": dados.get("nome", "Usuário Novo"),
-                "telefone": dados.get("telefone", doc.id),
-                "tempo": "Ativo agora"
-            })
-        return lista
-    except Exception as e:
-        return {"erro": str(e)}
+        return [{"id": d.id, "nome": d.to_dict().get("nome", "Novo"), "telefone": d.id} for d in leads_ref]
+    except:
+        return []
 
-# --- ROTAS DE CONFIGURAÇÃO ---
 @app.get("/configuracao-produto")
 def get_config():
     try:
@@ -99,4 +90,4 @@ def save_config(dados: dict):
 
 @app.get("/")
 def home():
-    return {"status": "Jacob API Rodando!"}
+    return {"status": "Jacob API Rodando com Sucesso!"}

@@ -17,7 +17,7 @@ app.add_middleware(
 )
 
 # 3. TERCEIRO: Conectamos ao Firebase
-firebase_config = os.getenv("FIREBASE_JSON")
+firebase_config = os.getenv("FIREBASE_SERVICE_ACCOUNT")
 if firebase_config:
     try:
         cred_dict = json.loads(firebase_config)

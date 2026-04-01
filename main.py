@@ -46,10 +46,21 @@ async def chat(dados: dict):
     try:
         lead_id = dados.get("lead_id", "5511999999999")
         mensagem = dados.get("mensagem")
+        
+        # 1. BUSCA A CONFIGURAÇÃO ATUAL NO FIREBASE (O pulo do gato)
+        doc = db.collection("configuracoes").document("jacob_config").get()
+        config_produto = doc.to_dict() if doc.exists else {}
+        
+        # 2. PEGA O CONTEXTO DO LEAD
         contexto = carregar_contexto_lead(lead_id)
-        resposta = root_agent(mensagem, contexto)
+        
+        # 3. PASSA TUDO PARA O AGENTE (Adicionamos a config_produto aqui)
+        # Você vai precisar ajustar o agent.py para aceitar esse novo parâmetro
+        resposta = root_agent(mensagem, contexto, config_produto) 
+        
         registrar_interacao(lead_id, "user", mensagem)
         registrar_interacao(lead_id, "model", resposta)
+        
         return {"lead_id": lead_id, "resposta": resposta}
     except Exception as e:
         return {"erro": str(e)}

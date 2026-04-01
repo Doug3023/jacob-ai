@@ -5,10 +5,9 @@ from fastapi.middleware.cors import CORSMiddleware
 import firebase_admin
 from firebase_admin import credentials, firestore
 
-# 1. PRIMEIRO: Criamos o app (Obrigatório ser antes das rotas)
+# 1. Configuração do App
 app = FastAPI()
 
-# 2. SEGUNDO: Configuramos o CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -16,80 +15,67 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 3. TERCEIRO: Conectamos ao Firebase
+# 2. Conexão Firebase (Melhorada)
+db = None
 firebase_config = os.getenv("FIREBASE_SERVICE_ACCOUNT")
+
 if firebase_config:
     try:
         cred_dict = json.loads(firebase_config)
         cred = credentials.Certificate(cred_dict)
-        firebase_admin.initialize_app(cred)
+        if not firebase_admin._apps:
+            firebase_admin.initialize_app(cred)
         db = firestore.client()
-        print("Firebase conectado com sucesso!")
+        print("✅ Firebase conectado com sucesso!")
     except Exception as e:
-        print(f"Erro ao carregar Firebase: {e}")
-        db = None
+        print(f"❌ Erro ao carregar Firebase: {e}")
 else:
-    db = None
-    print("Variável FIREBASE_JSON não encontrada!")
+    print("⚠️ Variável FIREBASE_SERVICE_ACCOUNT não encontrada!")
 
-# 4. QUARTO: Importamos o Agente (Só agora que o DB já existe)
-# Certifique-se que o arquivo agent.py está na mesma pasta
-try:
-    from agent import root_agent, carregar_contexto_lead, registrar_interacao
-except Exception as e:
-    print(f"Erro ao importar agent.py: {e}")
+# 3. Importação Direta (Se o agent.py estiver errado, o servidor vai avisar no Log)
+# Removi o try/except daqui para você ver o erro real nos logs do Render
+from agent import root_agent, carregar_contexto_lead, registrar_interacao
 
-# --- AGORA SIM, AS ROTAS (Todas abaixo do app = FastAPI) ---
+# --- ROTAS ---
 
 @app.post("/chat")
 async def chat(dados: dict):
     try:
-        lead_id = dados.get("lead_id", "5511999999999")
+        if not db:
+            return {"erro": "Banco de dados offline"}
+
+        lead_id = dados.get("lead_id", "teste_padrao")
         mensagem = dados.get("mensagem")
         
-        # 1. BUSCA A CONFIGURAÇÃO ATUAL NO FIREBASE (O pulo do gato)
+        if not mensagem:
+            return {"erro": "Mensagem vazia"}
+
+        # Busca a configuração do produto no Firebase
         doc = db.collection("configuracoes").document("jacob_config").get()
         config_produto = doc.to_dict() if doc.exists else {}
         
-        # 2. PEGA O CONTEXTO DO LEAD
+        # Pega o histórico do lead
         contexto = carregar_contexto_lead(lead_id)
         
-        # 3. PASSA TUDO PARA O AGENTE (Adicionamos a config_produto aqui)
-        # Você vai precisar ajustar o agent.py para aceitar esse novo parâmetro
+        # CHAMA O AGENTE (Certifique-se que o agent.py aceita config_produto!)
         resposta = root_agent(mensagem, contexto, config_produto) 
         
+        # Salva a conversa
         registrar_interacao(lead_id, "user", mensagem)
         registrar_interacao(lead_id, "model", resposta)
         
         return {"lead_id": lead_id, "resposta": resposta}
     except Exception as e:
+        print(f"Erro na rota /chat: {e}")
         return {"erro": str(e)}
-
-@app.get("/stats")
-def get_stats():
-    try:
-        if not db: return {"erro": "Firebase desconectado"}
-        leads_ref = db.collection("leads").get()
-        return {"conversas": len(leads_ref), "cliques": 0, "vendas": 0, "receita": "R$ 0,00"}
-    except Exception as e:
-        return {"erro": str(e)}
-
-@app.get("/listar-conversas")
-def listar_conversas():
-    try:
-        if not db: return []
-        leads_ref = db.collection("leads").stream()
-        return [{"id": d.id, "nome": d.to_dict().get("nome", "Novo"), "telefone": d.id} for d in leads_ref]
-    except:
-        return []
 
 @app.get("/configuracao-produto")
 def get_config():
     try:
         doc = db.collection("configuracoes").document("jacob_config").get()
-        return doc.to_dict() if doc.exists else {}
-    except:
-        return {}
+        return doc.to_dict() if doc.exists else {"aviso": "Nenhuma config encontrada"}
+    except Exception as e:
+        return {"erro": str(e)}
 
 @app.post("/configuracao-produto")
 def save_config(dados: dict):
@@ -101,4 +87,4 @@ def save_config(dados: dict):
 
 @app.get("/")
 def home():
-    return {"status": "Jacob API Rodando com Sucesso!"}
+    return {"status": "Jacob API Online"}
